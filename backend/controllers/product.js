@@ -18,11 +18,11 @@ const detailProducts = async (req, res) => {
     res.status(200).json({ product });
 };
 
-//create a new product
-const createProduct = async (req, res) => {
+//create a new product admin
+const createProduct = async (req, res, next) => {
     let images = [];
     if (typeof req.body.images === 'string') {
-        images.push({ public_id: req.body.images, url: req.body.images });
+        images.push(req.body.images);
     } else {
         images = req.body.images;
     }
@@ -41,25 +41,63 @@ const createProduct = async (req, res) => {
 };
 
 //delete a product
-const deleteProduct = async (req, res) => {
+const deleteProduct = async (req, res, next) => {
     const product = await Product.findById(req.params.id);
+
+    for (let i = 0; i < product.images.length; i++) {
+        await cloudinary.uploader.destroy(product.images[i].public_id);
+    }
 
     product.remove();
 
-
     res.status(200).json({ message: 'Product deleted' });
 }
 
-const updateProduct = async (req, res) => {
+const updateProduct = async (req, res, next) => {
     const product = await Product.findById(req.params.id);
 
-    product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-        new: true
-    });
+    let images = [];
+    if (typeof req.body.images === 'string') {
+        images.push(req.body.images);
+    } else {
+        images = req.body.images;
+    }
+    if (images !== undefined) {
+        for (let i = 0; i < product.images.length; i++) {
+            await cloudinary.uploader.destroy(product.images[i].public_id);
+        }
+    }
+    let allImage = [];
+    for (let i = 0; i < images.length; i++) {
+        const result = await cloudinary.uploader.upload(images[i], {
+            folder: 'products'
+        });
+        allImage.push({ public_id: result.public_id, url: result.secure_url });
+    }
 
+    req.body.images = allImage;
+    product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+        new: true,
+        runValidators: true,
+    });
 
     res.status(200).json({ message: 'Product deleted' });
 }
+
+
+const createReview = async (req, res, next) => {
+    const { rating, comment, productId } = req.body;
+    const review = {
+        user: req.user._id,
+        name: req.user.name,
+        rating: Number(rating),
+        comment,
+    };
+    const product = await Product.findById(productId);
+
+    product.reviews.push(review);
+}
+
 
 
 module.exports = { allProducts, detailProducts, createProduct, deleteProduct, updateProduct };
