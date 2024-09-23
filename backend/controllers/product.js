@@ -11,6 +11,11 @@ const allProducts = async (req, res) => {
     res.status(200).json({ products });
 };
 
+const adminProducts = async (req, res, next) => {
+    const products = await Product.find();
+    res.status(200).json({ products });
+};
+
 
 // get details of a product
 const detailProducts = async (req, res) => {
@@ -76,6 +81,8 @@ const updateProduct = async (req, res, next) => {
     }
 
     req.body.images = allImage;
+    req.body.user = req.user.id;
+
     product = await Product.findByIdAndUpdate(req.params.id, req.body, {
         new: true,
         runValidators: true,
@@ -96,8 +103,18 @@ const createReview = async (req, res, next) => {
     const product = await Product.findById(productId);
 
     product.reviews.push(review);
+    let avg = 0;
+    product.forEach(rev => {
+        avg += rev.rating;
+    });
+
+    product.rating = avg / product.reviews.length;
+
+    await product.save({ validateBeforeSave: false });
+    res.status(200).json({ message: 'Yorum başarıyla eklendi' });
+
 }
 
 
 
-module.exports = { allProducts, detailProducts, createProduct, deleteProduct, updateProduct };
+module.exports = { allProducts, detailProducts, createProduct, deleteProduct, updateProduct, createReview, adminProducts };
